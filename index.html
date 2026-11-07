@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1b2430">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cobros lazo">
+<title>Modelo de Cobros por Lazo</title>
+<style>
+/* Layout: tablero de cronómetro arriba, calculadora (parámetros + pagos), luego gráficas, fórmula del precio, reporte final, glosario y modelo. */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --ink:#1b2430; --muted:#5d6874; --line:#d9ddd8; --grid:#e6e9e5;
+  --accent:#b3122e; --accent-soft:#f6dde1;
+  --ok:#1f7a4a; --ok-soft:#dcefe3; --warn:#a86a00; --warn-soft:#f7ead0; --bad:#b3122e; --bad-soft:#f6dde1;
+  --tagJ:#1d5fa8; --tagJ-soft:#dde8f5; --tagE:#6a4a9c; --tagE-soft:#e9e1f4; --tagS:#8a5a00; --tagS-soft:#f4e8cf;
+  --seg1:#7a4f2a; --seg2:#2f6f8f; --seg3:#b3122e; --seg4:#8c949c; --seg5:#c9a227; --seg6:#1f7a4a; --seg7:#6a4a9c;
+  --board:#1b2430; --board-ink:#f3f4f2;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171d; --surface:#1a2129; --ink:#e7eaee; --muted:#9aa5b1; --line:#2c3540; --grid:#252d36;
+  --accent:#ef5b73; --accent-soft:#3a1c23;
+  --ok:#4cc58a; --ok-soft:#173326; --warn:#e5a93a; --warn-soft:#3a2d12; --bad:#ef5b73; --bad-soft:#3a1c23;
+  --tagJ:#7fb2ee; --tagJ-soft:#1b2c42; --tagE:#b9a0e6; --tagE-soft:#2a2240; --tagS:#e2b55a; --tagS-soft:#352a14;
+  --seg1:#b07a4c; --seg2:#4f9fc4; --seg3:#ef5b73; --seg4:#6e7882; --seg5:#e0bd45; --seg6:#4cc58a; --seg7:#b9a0e6;
+  --board:#0b0f13; --board-ink:#e7eaee; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171d; --surface:#1a2129; --ink:#e7eaee; --muted:#9aa5b1; --line:#2c3540; --grid:#252d36;
+  --accent:#ef5b73; --accent-soft:#3a1c23;
+  --ok:#4cc58a; --ok-soft:#173326; --warn:#e5a93a; --warn-soft:#3a2d12; --bad:#ef5b73; --bad-soft:#3a1c23;
+  --tagJ:#7fb2ee; --tagJ-soft:#1b2c42; --tagE:#b9a0e6; --tagE-soft:#2a2240; --tagS:#e2b55a; --tagS-soft:#352a14;
+  --seg1:#b07a4c; --seg2:#4f9fc4; --seg3:#ef5b73; --seg4:#6e7882; --seg5:#e0bd45; --seg6:#4cc58a; --seg7:#b9a0e6;
+  --board:#0b0f13; --board-ink:#e7eaee; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:2.1rem;line-height:1.05}
+h2{font-size:1.45rem}
+h3{font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+p{margin:0}
+.lead{color:var(--muted);max-width:72ch}
+header{display:flex;flex-direction:column;gap:8px}
+.eyebrow{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.14em;font-size:.85rem;color:var(--accent);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.88rem;color:var(--muted)}
+.tag{display:inline-block;font-family:var(--f-display);font-weight:600;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;border-radius:3px;white-space:nowrap}
+.tag.J{background:var(--tagJ-soft);color:var(--tagJ)} .tag.E{background:var(--tagE-soft);color:var(--tagE)} .tag.S{background:var(--tagS-soft);color:var(--tagS)}
+nav.jump{display:flex;flex-wrap:wrap;gap:6px}
+nav.jump a{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:4px 10px;background:var(--surface)}
+nav.jump a:hover{border-color:var(--accent);color:var(--accent)}
+.section-title{display:flex;flex-direction:column;gap:4px;padding-top:8px;border-top:2px solid var(--ink)}
+.section-title .num{font-family:var(--f-display);font-weight:700;color:var(--accent);font-size:.9rem;letter-spacing:.1em;text-transform:uppercase}
+
+.board{background:var(--board);color:var(--board-ink);border-radius:6px;padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px 22px}
+.board .k{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.1em;font-size:.78rem;opacity:.7}
+.board .v{font-family:var(--f-display);font-weight:700;font-size:2rem;line-height:1.05;font-variant-numeric:tabular-nums}
+.board .s{font-size:.82rem;opacity:.75}
+.status{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
+.pill{font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:.8rem;padding:3px 9px;border-radius:3px;white-space:nowrap}
+.pill.sano{background:var(--ok-soft);color:var(--ok)} .pill.recorte,.pill.bajo{background:var(--warn-soft);color:var(--warn)} .pill.perdida{background:var(--bad-soft);color:var(--bad)}
+
+.main{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.big{display:flex;flex-direction:column;gap:4px}
+.big label{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.85rem;display:flex;justify-content:space-between;gap:8px}
+.big .row{display:flex;gap:10px;align-items:center}
+.big input[type=number]{width:110px;font-family:var(--f-display);font-size:1.5rem;font-weight:700;padding:4px 8px}
+input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
+input[type=number],input[type=text],input[type=date],select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;font-variant-numeric:tabular-nums}
+input[type=text],input[type=date],select{font-family:var(--f-body);font-size:.95rem;padding:6px 8px;width:100%}
+input:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.92rem}
+.params{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.prm{display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:4px 10px;align-items:center}
+.prm .lab{font-size:.88rem;line-height:1.25}
+.prm input{width:96px;text-align:right}
+.prm .help{grid-column:1/-1;font-size:.78rem;color:var(--muted);margin-top:-2px}
+.rounds{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.rounds .rhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rounds .rhead label{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.92rem}
+.rounds select{width:auto}
+.rounds .seg .btn{font-size:.78rem;padding:4px 9px}
+.rrow{display:grid;grid-template-columns:minmax(0,1fr) 80px 70px;gap:8px;align-items:center;font-size:.88rem}
+.rrow input{width:80px;text-align:right}
+.rrow .eq{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);text-align:right}
+.actions ul{gap:8px}
+.actions .head{font-weight:600}
+.howtable td.num{text-align:right;white-space:nowrap}
+.toggle{display:flex;gap:8px;align-items:flex-start;font-size:.88rem}
+.btn{font-family:var(--f-display);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.85rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.helper{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;font-size:.8rem;color:var(--muted)}
+.helper input{width:100%}
+
+.results{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+thead th{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.06em;font-size:.78rem;color:var(--muted);font-weight:600}
+tfoot td{font-weight:700;border-bottom:none}
+td .sub{display:block;font-size:.76rem;color:var(--muted);white-space:normal}
+.num{font-family:var(--f-mono);font-size:.88rem}
+.neg{color:var(--bad)}
+.basechip{font-family:var(--f-display);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:3px;padding:0 5px;color:var(--muted);margin-left:4px;white-space:nowrap}
+
+.bar{display:flex;height:34px;border-radius:4px;overflow:hidden;background:var(--line)}
+.bar div{height:100%;min-width:0}
+.keys{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.84rem}
+.keys span{display:inline-flex;align-items:center;gap:6px}
+.keys i{width:11px;height:11px;border-radius:2px;display:inline-block}
+
+.matrix td,.matrix th{text-align:center}
+.matrix td{font-family:var(--f-mono);font-size:.8rem;line-height:1.2;padding:6px 4px;border:1px solid var(--bg);cursor:pointer}
+.matrix td b{display:block;font-size:.95rem;font-family:var(--f-display);font-weight:700}
+.matrix td.sano{background:var(--ok-soft);color:var(--ok)}
+.matrix td.recorte,.matrix td.bajo{background:var(--warn-soft);color:var(--warn)}
+.matrix td.perdida{background:var(--bad-soft);color:var(--bad)}
+.matrix td.cur{outline:2px solid var(--ink);outline-offset:-2px}
+.matrix th:first-child{text-align:left}
+
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:18px}
+.chart{position:relative}
+.chart svg{width:100%;height:auto;display:block}
+.chart svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.tip{position:absolute;pointer-events:none;background:var(--board);color:var(--board-ink);font-size:.8rem;padding:8px 10px;border-radius:4px;min-width:170px;font-variant-numeric:tabular-nums;z-index:2}
+.tip div{display:flex;justify-content:space-between;gap:12px}
+.tip i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:18px}
+.formula{font-family:var(--f-mono);font-size:.84rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;white-space:pre;overflow-x:auto;line-height:1.65}
+.card p,.card li{max-width:72ch}
+ul,ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+.note{font-size:.84rem;color:var(--muted)}
+.howtable td:first-child{font-weight:600}
+.howtable td{white-space:normal;text-align:left;vertical-align:top}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}
+.gloss dl{margin:0}
+.term{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.term dt{font-family:var(--f-display);font-weight:700;font-size:1.1rem}
+.term dt code{font-family:var(--f-mono);font-size:.85rem;color:var(--accent);margin-left:6px}
+.term dd{margin:0;font-size:.92rem}
+.term .ex{font-size:.84rem;color:var(--muted)}
+
+.report-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px}
+.report-fields label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
+.report{border:1px solid var(--line);border-radius:6px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:14px}
+.report .rh{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.report .rh h2{font-size:1.6rem}
+.report .meta{font-size:.88rem;color:var(--muted)}
+.report h3{margin-top:4px}
+.report td.sign{width:30%;border-bottom:1px solid var(--muted)}
+.copied{font-size:.84rem;color:var(--ok)}
+textarea{width:100%;min-height:160px;font-family:var(--f-mono);font-size:.8rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Central Roping México</span>
+    <h1>Calculadora de cobros por lazo</h1>
+    <p class="lead">Cada gasto se cobra con la base que le corresponde: fijo por evento, por salida u hora, o porcentaje de lo recaudado. Con eso sale una fórmula que te dice el precio mínimo del lazo para que el ganado, el personal, la organización y los premios queden pagados.</p>
+    <nav class="jump" aria-label="Secciones">
+      <a href="#calc">Calculadora</a><a href="#graficas">Gráficas</a><a href="#cuanto">Cuánto cobrar</a><a href="#comisiones">Comisiones</a><a href="#reporte">Reporte final</a><a href="#glosario">Conceptos</a><a href="#modelo">El modelo</a>
+    </nav>
+  </header>
+
+  <div class="board" id="board" aria-live="polite"></div>
+  <div class="status" id="status"></div>
+  <div class="card actions" id="actions" aria-live="polite"></div>
+
+  <div class="main" id="calc">
+    <aside class="panel" aria-label="Parámetros">
+      <div class="big">
+        <label for="N">Lazos en primera ronda (N)</label>
+        <div class="row"><input type="number" id="N" min="1" step="1"><input type="range" id="N_r" min="20" max="800" step="10" aria-label="Lazos"></div>
+      </div>
+      <div class="big">
+        <label for="P">Ingreso por lazo de pareja (P)</label>
+        <div class="row"><input type="number" id="P" min="1" step="10"><input type="range" id="P_r" min="50" max="2000" step="10" aria-label="Precio"></div>
+      </div>
+      <div class="helper">
+        <label>Paquete / draw: recaudación total<input type="number" id="hR" placeholder="ej. 60000"></label>
+        <label>Lazos resultantes del sorteo<input type="number" id="hN" placeholder="ej. 120"></label>
+        <button class="btn" id="hGo" type="button">Usar</button>
+      </div>
+      <p class="note">En pick only, P es lo que paga la pareja junta. En draw pot y pick draw, P = recaudación ÷ lazos que salieron del sorteo.</p>
+      <div class="rounds" id="rounds">
+        <div class="rhead"><label for="nr">Rondas</label>
+          <select id="nr" aria-label="Número de rondas"><option value="1">1 ronda</option><option value="2">2 rondas</option><option value="3">3 rondas</option><option value="4">4 rondas</option><option value="5">5 rondas</option><option value="6">6 rondas</option></select></div>
+        <div class="seg" role="group" aria-label="Cómo capturar el pase">
+          <button class="btn" type="button" id="rmPct" aria-pressed="true">Porcentaje de N</button>
+          <button class="btn" type="button" id="rmNum" aria-pressed="false">Parejas que pasaron</button>
+        </div>
+        <div id="roundRows" class="params"></div>
+        <p class="note" id="roundSum"></p>
+      </div>
+      <div id="paramGroups"></div>
+      <div><button class="btn" id="reset" type="button">Restablecer valores</button></div>
+    </aside>
+
+    <section class="results">
+      <div class="card">
+        <h2>Pago por área</h2>
+        <div class="scroll"><table id="areas"></table></div>
+        <p class="note" id="areasNote"></p>
+      </div>
+      <div class="card">
+        <h2>A dónde va cada lazo de <span id="barP"></span></h2>
+        <div class="bar" id="bar" role="img" aria-label="Desglose del precio del lazo"></div>
+        <div class="keys" id="barKeys"></div>
+      </div>
+      <div class="card">
+        <h2>Mapa de viabilidad: lazos contra precio</h2>
+        <p class="note" id="mapNote"></p>
+        <p class="note">Cada celda: arriba, el porcentaje que regresa a lazadores (efectivo + especie); abajo, la ganancia de la organización. Verde = sano, ámbar = se recorta la comisión para cumplir el piso de premios, rojo = la recaudación no cubre los gastos. ⏱ = pasa de la jornada máxima. Clic en una celda para cargarla.</p>
+        <div class="scroll"><table class="matrix" id="matrix"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- GRÁFICAS -->
+  <div class="section-title" id="graficas"><span class="num">Gráficas</span><h2>Cómo se mueve el dinero si cambias los lazos o el precio</h2>
+    <p class="lead">Elige qué variable mover. La otra se queda fija con el valor de la calculadora. La línea punteada vertical marca tu evento actual. Pasa el cursor o el dedo sobre la gráfica para ver los montos.</p>
+  </div>
+  <div class="seg" role="group" aria-label="Variable del eje horizontal">
+    <button class="btn" id="axP" type="button" aria-pressed="true">Mover el precio del lazo</button>
+    <button class="btn" id="axN" type="button" aria-pressed="false">Mover el número de lazos</button>
+    <span class="note" id="axNote"></span>
+  </div>
+  <div class="charts">
+    <div class="card"><h3>A dónde va la recaudación (pesos)</h3><div class="chart" id="chA"></div><div class="keys" id="kA"></div>
+      <p class="note">Las capas suman la recaudación. Cuando las capas pasan la línea de recaudación, la diferencia es pérdida de la organización.</p></div>
+    <div class="card"><h3>Cuánto gana cada área (pesos)</h3><div class="chart" id="chB"></div><div class="keys" id="kB"></div>
+      <p class="note">Base por trabajo + su parte de la comisión. Corraleros es el total de los cuatro.</p></div>
+    <div class="card"><h3>Qué porcentaje regresa al lazador</h3><div class="chart" id="chC"></div><div class="keys" id="kC"></div>
+      <p class="note">Debajo de la línea del piso, la comisión se recorta. Arriba, todas las áreas cobran completo. Donde la línea verde no aparece, hay pérdida.</p></div>
+    <div class="card"><h3>Precio mínimo sano según el número de lazos</h3><div class="chart" id="chD"></div><div class="keys" id="kD"></div>
+      <p class="note">Esta es la curva que responde "cuánto cobrar": para cada tamaño de lazada, el precio más bajo con el que todos cobran completo y se cumple el piso de premios. Baja con más lazos porque los gastos fijos se reparten entre más parejas.</p></div>
+  </div>
+
+  <!-- CUÁNTO COBRAR -->
+  <div class="section-title" id="cuanto"><span class="num">Cuánto cobrar</span><h2>La fórmula del precio del lazo</h2>
+    <p class="lead">Tu pregunta era si cobrar por salida, por porcentaje o fijo. La respuesta es que cada gasto tiene su base natural, y el precio del lazo se arma sumando todas.</p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <h3>Paso 1. Cada gasto con su base</h3>
+      <div class="scroll"><table class="howtable">
+        <thead><tr><th>Base</th><th>Qué entra</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>Fijo por evento</td><td>Agua, arena, premios en especie, operación de centralropingmexico.com, otros</td><td>Cuestan lo mismo con 50 o con 500 lazos. Por lazo, se diluyen cuando hay más parejas.</td></tr>
+          <tr><td>Por salida</td><td>Ganado</td><td>Cada vuelta del novillo es uso del ganado. Con más rondas o más lazos, más salidas.</td></tr>
+          <tr><td>Por hora</td><td>Corraleros, juez, vocero</td><td>Es tiempo de trabajo. Las horas salen de las salidas ÷ 80 más la preparación.</td></tr>
+          <tr><td>Porcentaje de lo recaudado</td><td>Comisión de corraleros, juez, vocero y organización; premios en efectivo</td><td>Es lo que sí debe crecer con el precio: responsabilidad, riesgo y la bolsa que se reparte.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>Paso 2. El costo de operación por lazo</h3>
+      <p>Sumo todo lo fijo, por salida y por hora, y lo divido entre los lazos. Ese es el costo de poner a correr una pareja. No incluyo la especie aquí porque es premio para el lazador.</p>
+      <div class="formula" id="fC"></div>
+    </div>
+    <div class="card">
+      <h3>Paso 3. El precio mínimo</h3>
+      <p>Del precio P, una parte (π) debe regresar como premio y otra (t) es la comisión. Lo que sobra tiene que cubrir el costo de operación. Despejando:</p>
+      <div class="formula" id="fP"></div>
+      <p class="note">t es la comisión promedio con los tramos, y la tarifa del ganado cambia con P, por eso la calculadora resuelve el número exacto. Si la especie vale más que el piso de premios, también se pide que el efectivo no quede en cero.</p>
+    </div>
+    <div class="card">
+      <h3>Paso 4. Cómo se lo presentas al lazador</h3>
+      <p>Con tu evento actual, cada lazo se divide en una cuota de operación (ganado, personal, gastos y comisión) y lo que va a la bolsa de premios. Mostrarlo así es transparente: el lazador ve cuánto de su pago regresa.</p>
+      <div class="formula" id="fS"></div>
+    </div>
+  </div>
+
+  <!-- COMISIONES -->
+  <div class="section-title" id="comisiones"><span class="num">Comisiones</span><h2>Qué es cada comisión y qué pasa si la mueves</h2>
+    <p class="lead">La comisión es la parte de la recaudación que se reparten las áreas, además de su pago por trabajo. Se calcula por tramos y luego se reparte por porcentajes. Los números son con tu lazada actual.</p>
+  </div>
+  <div class="card"><h3>Cuánto se cobra: tramos y piso</h3><div class="scroll"><table class="howtable" id="comTable"></table></div>
+    <p class="note" id="comNote"></p>
+    <p class="note">Precio mínimo = precio de lazo más bajo con el que todos cobran completo y se cumple el piso. Si sube, necesitas cobrar más por lazo.</p></div>
+  <div class="card"><h3>Quién se la queda: reparto</h3><div class="scroll"><table class="howtable" id="repTable"></table></div>
+    <p class="note">El reparto no cambia lo que paga ni lo que recibe el lazador. Solo decide qué área se queda con la comisión. Lo que le das a un área sale de organización.</p></div>
+
+  <!-- REPORTE -->
+  <div class="section-title" id="reporte"><span class="num">Reporte final</span><h2>Liquidación del evento</h2>
+    <p class="lead">Llena los datos del evento. El reporte usa los valores de la calculadora. Puedes copiarlo como texto para WhatsApp o correo, o como tabla para pegar en Excel.</p>
+  </div>
+  <div class="card">
+    <div class="report-fields">
+      <label for="rName">Nombre del evento<input type="text" id="rName"></label>
+      <label for="rDate">Fecha<input type="date" id="rDate"></label>
+      <label for="rPlace">Sede / arena<input type="text" id="rPlace"></label>
+      <label for="rMode">Modalidad<select id="rMode"><option>Pick only</option><option>Draw pot</option><option>Pick draw</option></select></label>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn primary" id="cpText" type="button">Copiar como texto</button>
+      <button class="btn" id="cpTab" type="button">Copiar tabla para Excel</button>
+      <span class="copied" id="cpMsg" aria-live="polite"></span>
+    </div>
+    <textarea id="cpFallback" hidden aria-label="Texto del reporte"></textarea>
+  </div>
+  <article class="report" id="report"></article>
+
+  <!-- GLOSARIO -->
+  <div class="section-title" id="glosario"><span class="num">Conceptos</span><h2>Qué significa cada término</h2></div>
+  <dl class="gloss" id="gloss"></dl>
+
+  <!-- MODELO -->
+  <div class="section-title" id="modelo"><span class="num">El modelo</span><h2>Las reglas completas</h2></div>
+  <div class="two">
+    <div class="card">
+      <h3>Cómo fluye el dinero en una lazada</h3>
+      <ol>
+        <li>Inscripción (pick only, draw pot o pick draw) → quedan N lazos y una recaudación R.</li>
+        <li>Se pagan los gastos fijos: agua, arena, especie, operación de centralropingmexico.com y otros.</li>
+        <li>Se paga el trabajo: ganado por salida, personal por hora.</li>
+        <li>Se aparta la comisión por valor y se reparte entre áreas.</li>
+        <li>Lo que queda es premio en efectivo, y nunca menos del piso.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Salidas y horas</h3>
+      <div class="formula">S = N + n₂ + n₃ + … + n_k      (hasta 6 rondas)
+n_i = N × %pase_i   o   el número de parejas que pasaron
+H = S ÷ v + h₀</div>
+      <p>Ejemplo: 100 → 50 → 20 → 10 da 180 salidas, 1.8 por lazo. Puedes capturar el pase como porcentaje de N o como número de parejas. Si H pasa de la jornada máxima, la calculadora lo marca con ⏱.</p>
+    </div>
+    <div class="card">
+      <h3>Ganado</h3>
+      <div class="formula">φ = recortar( (P − P_bajo) ÷ (P_alto − P_bajo), 0, 1 )
+g = g_min + (g_max − g_min) × φ
+Ganado = g × S</div>
+      <p>Lazo barato: tarifa baja por salida. Lazo caro: tarifa alta. En medio, proporcional.</p>
+    </div>
+    <div class="card">
+      <h3>Personal y comisión</h3>
+      <div class="formula">Base_área = tarifa × H   (+ operación de centralropingmexico.com en vocero)
+R = N × P
+M = t₁·tramo₁ + t₂·tramo₂ + t₃·resto
+Pago_área = Base_área + s_área × M</div>
+    </div>
+    <div class="card">
+      <h3>Premios y piso</h3>
+      <div class="formula">Q = R − gastos − bases − M
+Si (Q + especie) &lt; π·R  → M baja hasta cumplirlo
+Si Q &lt; 0  → faltante, lo pone la organización</div>
+    </div>
+    <div class="card">
+      <h3>Corraleros: aparte o dentro del ganado</h3>
+      <p>Pagarlos aparte te da control sobre cuántos trabajan y el ritmo de salidas. Si los incluyes en el pago del ganado, la casilla en Ganado muestra cuánto equivale por salida.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const GROUPS = [
+  {name:"Tiempo", items:[
+    {id:"v",lab:"Salidas por hora",def:80},
+    {id:"h0",lab:"Horas de preparación y cierre",def:3,step:0.5},
+    {id:"hmax",lab:"Jornada máxima (h)",def:10}
+  ]},
+  {name:"Ganado", items:[
+    {id:"gmin",lab:"Tarifa más baja por salida",def:80},
+    {id:"gmax",lab:"Tarifa más alta por salida",def:100},
+    {id:"pbajo",lab:"Si el lazo vale esto o menos, se paga la tarifa baja",def:200,step:10,help:"P bajo de referencia"},
+    {id:"palto",lab:"Si el lazo vale esto o más, se paga la tarifa alta",def:1000,step:10,help:"P alto de referencia. En medio, la tarifa sube en proporción."},
+    {id:"bundle",lab:"Incluir corraleros en el pago del ganado",def:0,type:"check"}
+  ]},
+  {name:"Personal: pago base por hora", items:[
+    {id:"nc",lab:"Corraleros",def:4},
+    {id:"wc",lab:"Pago por corralero por hora",def:100},
+    {id:"wj",lab:"Juez de bandera por hora",def:400},
+    {id:"wv",lab:"Vocero y operación por hora",def:400},
+    {id:"eq",lab:"Operación de centralropingmexico.com",def:1000,step:100,help:"Monto fijo por evento: barrera, computadora, programa, sitio, sonido, lonas"}
+  ]},
+  {name:"Gastos fijos del evento", items:[
+    {id:"agua",lab:"Agua para la arena",def:1400,step:100},
+    {id:"arena",lab:"Arena (renta o preparación)",def:2000,step:100,help:"Renta o preparación del piso"},
+    {id:"especie",lab:"Premios en especie",def:10000,step:500},
+    {id:"otros",lab:"Otros gastos",def:0,step:100}
+  ]},
+  {name:"Comisión por valor (tramos)", open:true, items:[
+    {id:"t1",lab:"% sobre el primer tramo",def:12,step:0.5},
+    {id:"L1",lab:"Primer tramo: de $0 hasta",def:50000,step:5000},
+    {id:"t2",lab:"% sobre el segundo tramo",def:9,step:0.5},
+    {id:"L2",lab:"Segundo tramo: hasta",def:200000,step:10000},
+    {id:"t3",lab:"% sobre lo que pase del segundo tramo",def:6,step:0.5}
+  ]},
+  {name:"Reparto de la comisión", open:true, items:[
+    {id:"sc",lab:"Corraleros (% de la comisión)",def:15},
+    {id:"sj",lab:"Juez (% de la comisión)",def:15},
+    {id:"sv",lab:"Vocero y operación (% de la comisión)",def:25,help:"Organización recibe el resto automáticamente"}
+  ]},
+  {name:"Metas", open:true, items:[
+    {id:"piso",lab:"Piso de regreso a lazadores (% de R)",def:40,help:"Efectivo + especie, como % de la recaudación"},
+    {id:"meta",lab:"Ganancia mínima de organización por evento",def:5000,step:500,help:"Lo que debe quedar para recuperar inversión y esfuerzo"}
+  ]}
+];
+const DEF={N:100,P:500,nr:4,rmode:"pct",rv:[50,20,10,5,2],rName:"",rDate:"",rPlace:"",rMode:"Pick only"};
+GROUPS.forEach(g=>g.items.forEach(i=>DEF[i.id]=i.def));
+let p={...DEF};
+try{const s=JSON.parse(localStorage.getItem("cobros-v1")||"null"); if(s) p={...DEF,...s};}catch(e){}
+p.rv=(Array.isArray(p.rv)?p.rv:DEF.rv).slice(0,5); while(p.rv.length<5) p.rv.push(0);
+const save=()=>{try{localStorage.setItem("cobros-v1",JSON.stringify(p))}catch(e){}};
+
+const $=id=>document.getElementById(id);
+const mx=new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0});
+const mx2=new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2});
+const nf=new Intl.NumberFormat("es-MX",{maximumFractionDigits:1});
+const $$=v=>mx.format(Math.round(v)).replace("-0","0");
+const pct=v=>nf.format(v*100)+"%";
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const ORD=["1ª","2ª","3ª","4ª","5ª","6ª"];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- modelo ---------- */
+function roundsCount(q,N){
+  const out=[N];
+  for(let k=0;k<q.nr-1;k++){const v=+((q.rv||[])[k])||0; out.push(q.rmode==="num"?Math.min(Math.max(0,Math.round(v)),N):Math.round(N*Math.max(0,v)/100));}
+  return out;
+}
+function comision(R,q){
+  const a=Math.min(R,q.L1), b=Math.min(Math.max(R-q.L1,0),Math.max(q.L2-q.L1,0)), c=Math.max(R-Math.max(q.L2,q.L1),0);
+  return q.t1/100*a+q.t2/100*b+q.t3/100*c;
+}
+function calc(q,N,P){
+  const rc=roundsCount(q,N);
+  const S=rc.reduce((a,b)=>a+b,0);
+  const f=N>0?S/N:0;
+  const H=S/Math.max(q.v,1)+q.h0;
+  const phi=q.palto>q.pbajo?clamp((P-q.pbajo)/(q.palto-q.pbajo),0,1):(P>=q.palto?1:0);
+  const g=q.gmin+(q.gmax-q.gmin)*phi;
+  const R=N*P;
+  const ganado=g*S, corr=q.nc*q.wc*H, juez=q.wj*H, voc=q.wv*H+q.eq;
+  const fijos=q.agua+q.arena+q.otros, esp=q.especie;
+  const op=ganado+corr+juez+voc+fijos;      // costo de operación (sin especie)
+  const costos=op+esp;
+  const M=comision(R,q);
+  const Qmin=Math.max(0,q.piso/100*R-esp);
+  let Mp=M, Q=R-costos-M;
+  if(Q<Qmin){Mp=Math.max(0,M-(Qmin-Q)); Q=R-costos-Mp;}
+  let falt=0; if(Q<0){falt=-Q;Q=0;}
+  const so=Math.max(0,100-q.sc-q.sj-q.sv)/100;
+  const status=falt>0.5?"perdida":(Q<Qmin-0.5?"bajo":(Mp<M-0.5?"recorte":"sano"));
+  return {N,P,rc,f,S,H,g,R,ganado,corr,juez,voc,fijos,esp,op,costos,M,Mp,Q,Qmin,falt,so,status,
+    payback:R>0?Math.min(1,(Q+esp)/R):0, org:so*Mp-falt,
+    cc:q.sc/100*Mp, cj:q.sj/100*Mp, cv:q.sv/100*Mp, co:so*Mp};
+}
+function precioMin(q,N){
+  const ok=P=>calc(q,N,P).status==="sano";
+  let hi=100000; if(!ok(hi)) return null;
+  let lo=1; if(ok(lo)) return lo;
+  for(let k=0;k<50;k++){const m=(lo+hi)/2; ok(m)?hi=m:lo=m;}
+  return Math.ceil(hi/10)*10;
+}
+function lazosMin(q,P){
+  for(let N=5;N<=3000;N++){ if(calc(q,N,P).status==="sano") return N; }
+  return null;
+}
+
+/* ---------- parámetros ---------- */
+function buildParams(){
+  const host=$("paramGroups"); host.innerHTML="";
+  GROUPS.forEach(g=>{
+    const d=document.createElement("details"); if(g.open) d.open=true;
+    d.innerHTML=`<summary>${g.name}</summary><div class="params"></div>`;
+    const box=d.querySelector(".params");
+    g.items.forEach(i=>{
+      const row=document.createElement("div");
+      if(i.type==="check"){
+        row.className="toggle";
+        row.innerHTML=`<input type="checkbox" id="${i.id}"><label for="${i.id}">${i.lab}<span class="note" id="bundleInfo" style="display:block"></span></label>`;
+        box.appendChild(row);
+        const el=row.querySelector("input"); el.checked=!!p[i.id];
+        el.addEventListener("change",()=>{p[i.id]=el.checked?1:0;update();});
+      } else {
+        row.className="prm";
+        row.innerHTML=`<label class="lab" for="${i.id}">${i.lab}</label><input type="number" id="${i.id}" step="${i.step||1}">${i.help?`<span class="help">${i.help}</span>`:""}`;
+        box.appendChild(row);
+        const el=row.querySelector("input"); el.value=p[i.id];
+        el.addEventListener("input",()=>{const v=parseFloat(el.value); if(!isNaN(v)){p[i.id]=v;update();}});
+      }
+    });
+    host.appendChild(d);
+  });
+}
+function bindBig(id){
+  const n=$(id), r=$(id+"_r");
+  n.value=p[id]; r.value=p[id];
+  n.addEventListener("input",()=>{const v=parseFloat(n.value); if(v>0){p[id]=v; r.value=v; update();}});
+  r.addEventListener("input",()=>{p[id]=parseFloat(r.value); n.value=p[id]; update();});
+}
+function setNP(N,P){p.N=N;p.P=P;$("N").value=N;$("N_r").value=N;$("P").value=P;$("P_r").value=P;update();}
+
+/* ---------- gráficas SVG ---------- */
+function nice(max){ if(max<=0) return 1; const e=Math.pow(10,Math.floor(Math.log10(max))); const m=max/e; return (m<=1?1:m<=2?2:m<=2.5?2.5:m<=5?5:10)*e; }
+function shortMoney(v){const a=Math.abs(v); const s=v<0?"−":""; return a>=1e6?s+"$"+nf.format(a/1e6)+"M":a>=1e3?s+"$"+nf.format(a/1e3)+"k":s+"$"+Math.round(a);}
+function drawChart(host, keysHost, cfg){
+  const W=640,Hh=300,ml=56,mr=26,mt=12,mb=34, iw=W-ml-mr, ih=Hh-mt-mb;
+  const xs=cfg.xs, n=xs.length;
+  const xmin=xs[0], xmax=xs[n-1];
+  let stackTop=[];
+  if(cfg.stacked){ for(let i=0;i<n;i++){ stackTop[i]=cfg.series.filter(s=>!s.line).reduce((a,s)=>a+Math.max(0,s.values[i]),0);} }
+  let ymax=Math.max(...cfg.series.flatMap(s=>s.values.filter(v=>v!=null)), ...(cfg.stacked?stackTop:[0]), cfg.hline||0);
+  let ymin=Math.min(0,...cfg.series.flatMap(s=>s.values.filter(v=>v!=null)));
+  const top=cfg.ymax?cfg.ymax:nice(ymax*1.05), step=top/4; const bot=ymin<0?-Math.ceil(-ymin/step)*step:0;
+  const X=x=>ml+(x-xmin)/(xmax-xmin||1)*iw, Y=y=>mt+(top-y)/(top-bot||1)*ih;
+  let g=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${cfg.label}">`;
+  for(let y=bot;y<=top+1e-9;y+=step){g+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(y)}" y2="${Y(y)}" stroke="${css(y===0?"--muted":"--grid")}" stroke-width="1"/><text x="${ml-6}" y="${Y(y)+4}" text-anchor="end">${cfg.yFmt(y)}</text>`;}
+  const xs0=nice((xmax-xmin)/6)/ (nice((xmax-xmin)/6)/((xmax-xmin)/6)>1.6?2:1); for(let xv=Math.ceil(xmin/xs0)*xs0;xv<=xmax+1e-9;xv+=xs0){ g+=`<text x="${X(xv)}" y="${Hh-12}" text-anchor="middle">${cfg.xFmt(xv)}</text>`;}
+  if(cfg.stacked){
+    let base=new Array(n).fill(0);
+    cfg.series.filter(s=>!s.line).forEach(s=>{
+      const up=s.values.map((v,i)=>base[i]+Math.max(0,v));
+      const pts=xs.map((x,i)=>`${X(x)},${Y(up[i])}`).join(" ")+" "+xs.slice().reverse().map((x,j)=>{const i=n-1-j;return `${X(x)},${Y(base[i])}`}).join(" ");
+      g+=`<polygon points="${pts}" fill="${css(s.color)}" fill-opacity=".85" stroke="none"/>`;
+      base=up;
+    });
+  }
+  if(cfg.hline!=null){g+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(cfg.hline)}" y2="${Y(cfg.hline)}" stroke="${css("--accent")}" stroke-dasharray="6 4" stroke-width="1.5"/><text x="${W-mr}" y="${Y(cfg.hline)-5}" text-anchor="end" style="fill:${css("--accent")}">${cfg.hlineLabel}</text>`;}
+  cfg.series.filter(s=>!cfg.stacked||s.line).forEach(s=>{
+    let d="",pen=false; s.values.forEach((v,i)=>{ if(v==null){pen=false;return;} d+=(pen?"L":"M")+X(xs[i])+","+Y(v)+" "; pen=true;});
+    g+=`<path d="${d}" fill="none" stroke="${css(s.color)}" stroke-width="2.5" ${s.dash?'stroke-dasharray="5 4"':""} stroke-linejoin="round"/>`;
+  });
+  if(cfg.cur!=null && cfg.cur>=xmin && cfg.cur<=xmax){g+=`<line x1="${X(cfg.cur)}" x2="${X(cfg.cur)}" y1="${mt}" y2="${mt+ih}" stroke="${css("--ink")}" stroke-dasharray="3 3" stroke-width="1"/>`;}
+  g+=`<line id="hov" x1="0" x2="0" y1="${mt}" y2="${mt+ih}" stroke="${css("--muted")}" stroke-width="1" visibility="hidden"/>`;
+  g+=`<rect x="${ml}" y="${mt}" width="${iw}" height="${ih}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+  host.innerHTML=g;
+  keysHost.innerHTML=cfg.series.map(s=>`<span><i style="background:var(${s.color})"></i>${s.name}</span>`).join("")+(cfg.hline!=null?`<span><i style="background:var(--accent)"></i>${cfg.hlineLabel}</span>`:"");
+  const svg=host.querySelector("svg"), tip=host.querySelector(".tip"), hov=svg.querySelector("#hov");
+  const move=e=>{
+    const r=svg.getBoundingClientRect(); const cx=(e.clientX-r.left)/r.width*W;
+    const xv=xmin+(cx-ml)/iw*(xmax-xmin); let i=Math.round((xv-xmin)/(xmax-xmin)*(n-1)); i=clamp(i,0,n-1);
+    hov.setAttribute("x1",X(xs[i])); hov.setAttribute("x2",X(xs[i])); hov.setAttribute("visibility","visible");
+    tip.innerHTML=`<div><b>${cfg.xLong(xs[i])}</b></div>`+cfg.series.map(s=>`<div><span><i style="background:var(${s.color})"></i>${s.name}</span><b>${s.values[i]==null?"—":cfg.tipFmt(s.values[i])}</b></div>`).join("");
+    tip.hidden=false;
+    const px=(X(xs[i])/W)*r.width; const tw=tip.offsetWidth;
+    tip.style.left=(px+tw+12>r.width?px-tw-10:px+10)+"px"; tip.style.top="8px";
+  };
+  svg.addEventListener("pointermove",move); svg.addEventListener("pointerdown",move);
+  svg.addEventListener("pointerleave",()=>{tip.hidden=true;hov.setAttribute("visibility","hidden");});
+}
+let axis="P";
+function renderCharts(){
+  const q=p;
+  const xs=axis==="P"?rangeP(q):rangeN(q);
+  const rs=xs.map(x=>axis==="P"?calc(q,q.N,x):calc(q,x,q.P));
+  $("axNote").textContent=(axis==="P"?`Lazos fijos en ${q.N}.`:`Precio fijo en ${$$(q.P)} por lazo.`)+` Rondas: ${q.nr}, ${q.rmode==="num"?"parejas fijas por ronda":"pase en porcentaje"}.`;
+  const xFmt=axis==="P"?(x=>"$"+Math.round(x)):(x=>Math.round(x)+"");
+  const xLong=axis==="P"?(x=>`Lazo de ${$$(x)} · ${q.N} lazos`):(x=>`${Math.round(x)} lazos de ${$$(q.P)}`);
+  const cur=axis==="P"?q.P:q.N;
+  drawChart($("chA"),$("kA"),{label:"Destino de la recaudación",xs,stacked:true,cur,xFmt,xLong,yFmt:shortMoney,tipFmt:$$,series:[
+    {name:"Ganado",color:"--seg1",values:rs.map(r=>r.ganado)},
+    {name:"Personal (base)",color:"--seg2",values:rs.map(r=>r.corr+r.juez+r.voc)},
+    {name:"Agua, arena y otros",color:"--seg4",values:rs.map(r=>r.fijos)},
+    {name:"Comisión",color:"--seg3",values:rs.map(r=>r.Mp)},
+    {name:"Especie",color:"--seg5",values:rs.map(r=>r.esp)},
+    {name:"Premio en efectivo",color:"--seg6",values:rs.map(r=>r.Q)},
+    {name:"Recaudación",color:"--ink",line:true,values:rs.map(r=>r.R)}]});
+  drawChart($("chB"),$("kB"),{label:"Ganancia por área",xs,cur,xFmt,xLong,yFmt:shortMoney,tipFmt:$$,series:[
+    ...(q.bundle?[{name:"Ganado + corraleros",color:"--seg1",values:rs.map(r=>r.ganado+r.corr+r.cc)}]:[{name:"Ganado",color:"--seg1",values:rs.map(r=>r.ganado)},{name:`Corraleros (${q.nc}, total)`,color:"--seg2",values:rs.map(r=>r.corr+r.cc)}]),
+    {name:"Juez",color:"--seg5",values:rs.map(r=>r.juez+r.cj)},
+    {name:"Vocero y operación",color:"--seg7",values:rs.map(r=>r.voc+r.cv)},
+    {name:"Organización",color:"--seg3",values:rs.map(r=>r.org)}]});
+  drawChart($("chC"),$("kC"),{label:"Porcentaje que regresa al lazador",xs,cur,xFmt,xLong,ymax:1,yFmt:v=>Math.round(v*100)+"%",tipFmt:pct,hline:q.piso/100,hlineLabel:`Piso ${q.piso}%`,series:[
+    {name:"Regresa al lazador",color:"--seg6",values:rs.map(r=>r.status==="perdida"?null:r.payback)},
+    {name:"Comisión ÷ recaudación",color:"--seg3",values:rs.map(r=>r.R?r.Mp/r.R:0)},
+    {name:"Ganado ÷ recaudación",color:"--seg1",dash:true,values:rs.map(r=>r.R?Math.min(1,r.ganado/r.R):null)}]});
+  const ns=rangeN(q);
+  const pm=ns.map(n=>precioMin(q,n));
+  drawChart($("chD"),$("kD"),{label:"Precio mínimo sano",xs:ns,cur:q.N,xFmt:x=>Math.round(x)+"",xLong:x=>`${Math.round(x)} lazos`,yFmt:shortMoney,tipFmt:$$,hline:q.P,hlineLabel:`Tu precio ${$$(q.P)}`,series:[
+    {name:"Precio mínimo sano",color:"--seg6",values:pm},
+    {name:"Solo cubrir costos (sin comisión ni piso)",color:"--seg4",dash:true,values:ns.map(n=>{const c=calc(q,n,q.P);return Math.min(4000,(c.op+c.esp)/n)})}]});
+}
+$("axP").addEventListener("click",()=>{axis="P";$("axP").setAttribute("aria-pressed","true");$("axN").setAttribute("aria-pressed","false");renderCharts();});
+$("axN").addEventListener("click",()=>{axis="N";$("axN").setAttribute("aria-pressed","true");$("axP").setAttribute("aria-pressed","false");renderCharts();});
+
+/* ---------- rangos según la lazada ---------- */
+function r10(x){return Math.max(10,Math.round(x/10)*10);}
+function rangeP(q){const pm=precioMin(q,q.N)||q.P; const lo=Math.max(20,Math.min(q.P,pm)*0.3), hi=Math.max(q.P,pm)*2.5; const st=(hi-lo)/60; const a=[]; for(let i=0;i<=60;i++) a.push(Math.round(lo+st*i)); return a;}
+function rangeN(q){const lo=Math.max(5,Math.round(q.N*0.2)), hi=Math.max(lo+20,Math.round(q.N*3)); const st=(hi-lo)/50; const a=[]; for(let i=0;i<=50;i++) a.push(Math.round(lo+st*i)); return [...new Set(a)];}
+function gridVals(q){
+  const Ns=[...new Set([0.5,0.75,1,1.5,2,3].map(k=>k===1?q.N:Math.max(5,r10(q.N*k))))].sort((a,b)=>a-b);
+  const pm=precioMin(q,q.N);
+  const base=[0.4,0.6,0.8,1,1.25,1.5,2].map(k=>k===1?q.P:r10(q.P*k));
+  if(pm&&!base.includes(pm)) base.push(pm);
+  const Ps=[...new Set(base)].sort((a,b)=>a-b);
+  return {Ns,Ps};
+}
+function pMeta(q,N){
+  const ok=P=>{const c=calc(q,N,P);return c.status!=="perdida"&&c.org>=q.meta};
+  let hi=100000; if(!ok(hi)) return null; let lo=1; if(ok(lo)) return lo;
+  for(let k=0;k<50;k++){const m=(lo+hi)/2; ok(m)?hi=m:lo=m;}
+  return Math.ceil(hi/10)*10;
+}
+const cloneQ=mod=>Object.assign({},p,{rv:p.rv.slice()},mod);
+const sg$=v=>(v>=0.5?"+":v<=-0.5?"−":"")+$$(Math.abs(v));
+const sgp=v=>(v>=0.0005?"+":v<=-0.0005?"−":"")+nf.format(Math.abs(v)*100)+" pts";
+
+/* ---------- qué hacer ---------- */
+function renderActions(q,r,pmin,nmin){
+  const L=[]; let head;
+  const D=(r.M-r.Mp)+r.falt;
+  if(r.status!=="sano"){
+    head=`Faltan ${$$(D)} para que todas las áreas cobren completo y se cumpla el piso de ${q.piso}%. Cualquiera de estas opciones lo resuelve por sí sola:`;
+    if(pmin) L.push(`<b>Subir el lazo a ${$$(pmin)}</b> (${sg$(pmin-q.P)} por pareja). Es lo más directo.`);
+    L.push(nmin?`<b>Juntar ${nmin} lazos</b> (${nmin-q.N} más) al mismo precio.`:`Con ${$$(q.P)} por lazo no sale con ningún número de lazos: ese precio no cubre lo que cuesta cada pareja. Hay que subir el precio o bajar costos.`);
+    if(q.nr>1){const q2=cloneQ({nr:q.nr-1}); const r2=calc(q2,q.N,q.P); const pm2=precioMin(q2,q.N);
+      L.push(`<b>Quitar la ${ORD[q.nr-1]} ronda</b>: ahorra ${r.S-r2.S} salidas y ${$$(r.op-r2.op)} de ganado y horas. ${r2.status==="sano"?"Con eso el evento queda sano.":`El precio mínimo baja a ${pm2?$$(pm2):"—"}.`}`);}
+    const per=D/Math.max(r.S,1); if(per<=0.25*r.g) L.push(`<b>Negociar el ganado ${mx2.format(per)} más barato por salida</b> (de ${mx2.format(r.g)} a ${mx2.format(r.g-per)}).`);
+    L.push(`<b>Conseguir ${$$(D)} de patrocinio</b> o dinero agregado a la bolsa.`);
+    if(r.status!=="perdida"){const pn=(r.R-r.op-r.M)/r.R; if(pn>0) L.push(`<b>Bajar el piso a ${pct(pn)}</b>. Solo si los lazadores lo aceptan, porque reciben menos.`);}
+    if(r.falt>0&&q.especie>0) L.push(`<b>Reducir premios en especie</b>: cada peso que quites reduce la pérdida, pero el lazador recibe menos. La especie no ayuda a cumplir el piso porque sale del mismo dinero que el efectivo.`);
+  } else head=`Todas las áreas cobran completo y regresa ${pct(r.payback)} a los lazadores.`;
+  if(r.org<q.meta && r.status!=="perdida"){
+    const pm=pMeta(q,q.N);
+    L.push(`<b>Organización gana ${$$(r.org)}, debajo de su meta de ${$$(q.meta)}.</b> ${pm?`Para llegar, sube el lazo a ${$$(pm)}`:"Con este tamaño no se alcanza subiendo el precio"}${r.Mp>0&&q.meta/r.Mp<=1?`, o sube la parte de organización en el reparto a ${pct(q.meta/r.Mp)} (hoy ${pct(r.so)}) quitándole a otras áreas`:""}, o sube el % del primer tramo de comisión.`);
+  } else if(r.status==="sano") L.push(`Organización gana ${$$(r.org)}, arriba de su meta de ${$$(q.meta)}.`);
+  if(r.so<=0) L.push(`<b>Organización no recibe nada de la comisión</b>: el reparto a corraleros, juez y vocero suma 100% o más.`);
+  if(r.H>q.hmax) L.push(`<b>La lazada dura ${nf.format(r.H)} h</b>, más que tu jornada de ${q.hmax} h. Pártela en dos días (se paga otra vez preparación, agua y arena) o quita una ronda.`);
+  $("actions").innerHTML=`<h2>Qué hacer</h2><p class="head">${head}</p>${L.length?`<ul>${L.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}`;
+}
+
+/* ---------- comisiones ---------- */
+function renderCom(q,r,pmin){
+  const a=Math.min(r.R,q.L1), b=Math.min(Math.max(r.R-q.L1,0),Math.max(q.L2-q.L1,0)), c=Math.max(r.R-Math.max(q.L2,q.L1),0);
+  const imp=mod=>{const q2=cloneQ(mod); const r2=calc(q2,q.N,q.P); const pm2=precioMin(q2,q.N);
+    return [sg$(r2.M-r.M),sgp(r2.payback-r.payback),pm2&&pmin?sg$(pm2-pmin):"—",sg$(r2.org-r.org)];};
+  const rows=[
+    [`Tramo 1: ${q.t1}% de $0 a ${$$(q.L1)}`,"Se cobra sobre los primeros pesos de cualquier lazada, chica o grande. Es la que más pesa en lazadas chicas y la que más mueve el precio mínimo.",`${$$(a*q.t1/100)} sobre ${$$(a)}`,"+1 punto",imp({t1:q.t1+1})],
+    [`Tramo 2: ${q.t2}% de ${$$(q.L1)} a ${$$(q.L2)}`,"Solo aplica a la parte de la recaudación que pasa del primer límite. Afecta lazadas medianas y grandes.",`${$$(b*q.t2/100)} sobre ${$$(b)}`,"+1 punto",imp({t2:q.t2+1})],
+    [`Tramo 3: ${q.t3}% arriba de ${$$(q.L2)}`,"Solo para lazadas grandes. Mantenerlo bajo hace que en eventos grandes regrese más al lazador.",`${$$(c*q.t3/100)} sobre ${$$(c)}`,"+1 punto",imp({t3:q.t3+1})],
+    [`Límite del tramo 1: ${$$(q.L1)}`,"Hasta dónde se cobra el porcentaje más alto. Subirlo cobra más en lazadas medianas.","—","+$10,000",imp({L1:q.L1+10000})],
+    [`Límite del tramo 2: ${$$(q.L2)}`,"Hasta dónde se cobra el porcentaje medio.","—","+$10,000",imp({L2:q.L2+10000})],
+    [`Piso de premios: ${q.piso}%`,"Lo mínimo que debe regresar al lazador. Si no se alcanza, se recorta la comisión. Subirlo protege al lazador pero sube el precio mínimo.",`${$$(r.Q+r.esp)} regresan`,"+1 punto",imp({piso:q.piso+1})]
+  ];
+  $("comTable").innerHTML=`<thead><tr><th>Concepto</th><th>Qué es</th><th>Con tu lazada</th><th>Si lo subes</th><th>Comisión</th><th>Regresa al lazador</th><th>Precio mínimo</th><th>Organización</th></tr></thead><tbody>`+
+    rows.map(([n,w,now,d,[m,pb,pm,o]])=>`<tr><td>${n}</td><td style="min-width:220px">${w}</td><td class="num">${now}</td><td class="num">${d}</td><td class="num">${m}</td><td class="num">${pb}</td><td class="num">${pm}</td><td class="num">${o}</td></tr>`).join("")+`</tbody>`;
+  $("comNote").textContent=r.Mp<r.M-0.5?`Hoy el piso de premios está recortando la comisión (se calculan ${$$(r.M)} y se aplican ${$$(r.Mp)}). Por eso subir un tramo no le da más dinero a las áreas en esta lazada: solo sube el precio mínimo. La columna Comisión muestra lo calculado antes del recorte.`:"";
+  const one=r.Mp/100;
+  const rep=[
+    [`Corraleros: ${q.sc}%`,"Premia el ritmo y el cuidado del ganado; crece con lazadas más grandes o más caras.",r.cc,`${$$(r.cc/Math.max(q.nc,1))} cada uno`],
+    [`Juez de bandera: ${q.sj}%`,"Responsabilidad sobre tiempos y clasificación, que pesa más cuando la bolsa es grande.",r.cj,""],
+    [`Vocero y operación: ${q.sv}%`,"Operación de centralropingmexico.com, publicidad y conducción del evento.",r.cv,""],
+    [`Organización e inversión: ${nf.format(r.so*100)}%`,"El resto. Recupera inversión y esfuerzo, y pone el dinero si hay pérdida.",r.co,""]
+  ];
+  $("repTable").innerHTML=`<thead><tr><th>Área</th><th>Por qué recibe comisión</th><th>Recibe hoy</th><th>Cada punto vale</th></tr></thead><tbody>`+
+    rep.map(([n,w,v,x])=>`<tr><td>${n}</td><td style="min-width:220px">${w}</td><td class="num">${$$(v)}${x?`<span class="sub">${x}</span>`:""}</td><td class="num">${$$(one)}</td></tr>`).join("")+`</tbody>`;
+}
+
+/* ---------- render principal ---------- */
+const STAT={sano:"Sano",recorte:"Comisión recortada",bajo:"Premios bajo el piso",perdida:"Pérdida"};
+let last={};
+function update(){
+  save();
+  const q=p, r=calc(q,q.N,q.P);
+  const pmin=precioMin(q,q.N), nmin=lazosMin(q,q.P);
+  const overH=r.H>q.hmax;
+  last={r,pmin,nmin};
+  refreshRounds(r);
+
+  $("board").innerHTML=[
+    ["Recaudación",$$(r.R),`${q.N} lazos × ${$$(q.P)}`],
+    ["Regresa a lazadores",pct(r.payback),`${$$(r.Q)} efectivo + ${$$(r.esp)} especie`],
+    ["Organización",$$(r.org),r.falt>0?"pone el faltante":(r.org>=q.meta?`meta de ${$$(q.meta)} cumplida`:`debajo de su meta de ${$$(q.meta)}`)],
+    ["Precio mínimo sano",pmin?$$(pmin):"—",`para ${q.N} lazos`],
+    ["Lazos mínimos",nmin?nmin:"No sale",`a ${$$(q.P)} por lazo`],
+    ["Salidas · horas",`${r.S} · ${nf.format(r.H)} h`,overH?`⏱ pasa de ${q.hmax} h`:`ganado a ${mx2.format(r.g)}/salida`]
+  ].map(([k,v,s])=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  let msg;
+  if(r.status==="sano") msg=`Todas las áreas cobran completo y regresa ${pct(r.payback)} a los lazadores, arriba del piso de ${q.piso}%.`;
+  else if(r.status==="recorte") msg=`Para cumplir el piso de ${q.piso}% se recortó la comisión de ${$$(r.M)} a ${$$(r.Mp)}. El pago base por trabajo está completo. Para que sea sano, sube el lazo a ${pmin?$$(pmin):"—"} o junta ${nmin?nmin+" lazos":"más lazos"}.`;
+  else if(r.status==="bajo") msg=`Se pagan los gastos y el trabajo base, pero no hay comisión y los premios quedan en ${pct(r.payback)}, debajo del piso de ${q.piso}%. Precio mínimo sano para ${q.N} lazos: ${pmin?$$(pmin):"—"}.`;
+  else msg=`La recaudación no alcanza: faltan ${$$(r.falt)} para cubrir ganado, personal y gastos. ${nmin?`Con ${$$(q.P)} se necesitan al menos ${nmin} lazos`:`Con ${$$(q.P)} por lazo no sale a ningún tamaño: el lazo no cubre ni su ganado y su tiempo`}. Precio mínimo sano para ${q.N} lazos: ${pmin?$$(pmin):"—"}.`;
+  if(overH) msg+=` La lazada dura ${nf.format(r.H)} h, más que tu jornada máxima.`;
+  $("status").innerHTML=`<span class="pill ${r.status}">${STAT[r.status]}</span><p>${msg}</p>`;
+
+  const per=v=>q.N>0?mx2.format(v/q.N):"";
+  const rows=areaRows(q,r);
+  let tb=0,tc=0;
+  const body=rows.map(([n,sub,base,com,bas])=>{tb+=base;tc+=com;const t=base+com;
+    return `<tr><td>${n}<span class="basechip">${bas}</span><span class="sub">${sub}</span></td><td class="num ${base<0?"neg":""}">${$$(base)}</td><td class="num">${com?$$(com):"—"}</td><td class="num ${t<0?"neg":""}"><b>${$$(t)}</b></td><td class="num">${per(t)}</td></tr>`}).join("");
+  $("areas").innerHTML=`<thead><tr><th>Área</th><th>Base por trabajo</th><th>Comisión por valor</th><th>Total</th><th>Por lazo</th></tr></thead><tbody>${body}</tbody><tfoot><tr><td>Total = recaudación</td><td class="num">${$$(tb)}</td><td class="num">${$$(tc)}</td><td class="num">${$$(tb+tc)}</td><td class="num">${per(tb+tc)}</td></tr></tfoot>`;
+  $("areasNote").textContent=`Comisión calculada por tramos: ${$$(r.M)} (${pct(r.R?r.M/r.R:0)} de la recaudación)${r.Mp<r.M-0.5?`, aplicada ${$$(r.Mp)} por el piso de premios`:""}. Si incluyes a los corraleros en el ganado, equivale a ${mx2.format(r.corr/Math.max(r.S,1))} más por salida.`;
+  const bi=$("bundleInfo"); if(bi) bi.textContent=`Equivale a ${mx2.format(r.corr/Math.max(r.S,1))} extra por salida en este evento.`;
+
+  $("barP").textContent=$$(q.P);
+  const segs=[["Ganado",r.ganado,"--seg1"],["Personal base",r.corr+r.juez+r.voc,"--seg2"],["Agua, arena y otros",r.fijos,"--seg4"],["Comisión",r.Mp,"--seg3"],["Especie",r.esp,"--seg5"],["Premio en efectivo",r.Q,"--seg6"]];
+  const tot=segs.reduce((a,s)=>a+s[1],0)||1;
+  $("bar").innerHTML=segs.map(s=>`<div title="${s[0]}" style="width:${s[1]/tot*100}%;background:var(${s[2]})"></div>`).join("");
+  $("barKeys").innerHTML=segs.map(s=>`<span><i style="background:var(${s[2]})"></i>${s[0]} <b class="num">${per(s[1])}</b></span>`).join("")+(r.falt>0?`<span class="neg">Faltante por lazo <b class="num">${per(r.falt)}</b></span>`:"");
+
+  const {Ns,Ps}=gridVals(q);
+  let h=`<thead><tr><th>Lazos ↓ / Precio →</th>${Ps.map(x=>`<th>${$$(x)}</th>`).join("")}</tr></thead><tbody>`;
+  Ns.forEach(N=>{h+=`<tr><th>${N}</th>`;Ps.forEach(P=>{const c=calc(q,N,P);const cur=(N===q.N&&P===q.P)?" cur":"";
+    h+=`<td class="${c.status}${cur}" data-n="${N}" data-p="${P}" tabindex="0"><b>${pct(c.payback)}${c.H>q.hmax?" ⏱":""}</b>${$$(c.org)}</td>`});h+="</tr>"});
+  $("matrix").innerHTML=h+"</tbody>";
+
+  renderFormula(q,r,pmin);
+  renderActions(q,r,pmin,nmin);
+  renderCom(q,r,pmin);
+  $("mapNote").textContent=`Calculado con tu configuración: ${q.nr} rondas, piso ${q.piso}%, tarifas y gastos del panel. Los valores se acomodan alrededor de tu lazada (${q.N} lazos de ${$$(q.P)}) e incluyen tu precio mínimo.`;
+  renderReport(q,r,pmin,nmin);
+  renderGloss(q,r,pmin,nmin);
+  renderCharts();
+}
+function areaRows(q,r){
+  const rows=[];
+  if(q.bundle){
+    rows.push(["Ganado + corraleros",`${r.S} salidas × ${mx2.format(r.g+r.corr/r.S)} (incluye ${q.nc} corraleros)`,r.ganado+r.corr,r.cc,"por salida"]);
+  } else {
+    rows.push(["Ganado",`${r.S} salidas × ${mx2.format(r.g)}`,r.ganado,0,"por salida"]);
+    rows.push([`Corraleros (${q.nc})`,`${q.nc} × ${$$(q.wc)}/h × ${nf.format(r.H)} h · cada uno ${$$((r.corr+r.cc)/Math.max(q.nc,1))}`,r.corr,r.cc,"hora + %"]);
+  }
+  rows.push(["Juez de bandera",`${$$(q.wj)}/h × ${nf.format(r.H)} h`,r.juez,r.cj,"hora + %"]);
+  rows.push(["Vocero y operación",`${$$(q.wv)}/h × ${nf.format(r.H)} h + ${$$(q.eq)} operación centralropingmexico.com`,r.voc,r.cv,"hora + fijo + %"]);
+  rows.push(["Organización e inversión",r.falt>0?`pone el faltante de ${$$(r.falt)}`:`${nf.format(r.so*100)}% de la comisión`,r.falt>0?-r.falt:0,r.co,"%"]);
+  rows.push(["Agua",`fijo`,q.agua,0,"fijo"]);
+  rows.push(["Arena",`fijo`,q.arena,0,"fijo"]);
+  if(q.otros) rows.push(["Otros gastos",`fijo`,q.otros,0,"fijo"]);
+  rows.push(["Premios en especie","fijo, cuenta como premio",r.esp,0,"fijo"]);
+  rows.push(["Premios en efectivo","lo que queda",r.Q,0,"resto"]);
+  return rows;
+}
+
+function renderFormula(q,r,pmin){
+  const Ntxt=q.N, w=q.nc*q.wc+q.wj+q.wv;
+  const cSal=r.f*r.g, cHora=w*r.f/Math.max(q.v,1), cFijo=(w*q.h0+q.eq+q.agua+q.arena+q.otros)/q.N;
+  const c=cSal+cHora+cFijo;
+  const t=r.R?r.M/r.R:0, pi=q.piso/100;
+  const approx=c/Math.max(0.01,1-pi-t), approx2=(c+q.especie/q.N)/Math.max(0.01,1-t);
+  $("fC").textContent=
+`c = ganado por lazo + personal por lazo + fijos por lazo
+
+ganado por lazo   = ${nf.format(r.f)} salidas × ${mx2.format(r.g)}           = ${mx2.format(cSal)}
+personal por lazo = ${$$(w)}/h × ${nf.format(r.f)} ÷ ${q.v} salidas/h        = ${mx2.format(cHora)}
+fijos por lazo    = (${$$(w)}×${q.h0} h + operación CRM + agua + arena + otros) ÷ ${Ntxt}
+                  = ${$$(w*q.h0+q.eq+q.agua+q.arena+q.otros)} ÷ ${Ntxt}               = ${mx2.format(cFijo)}
+
+c (costo de operación por lazo, ${Ntxt} lazos)        = ${mx2.format(c)}`;
+  $("fP").textContent=
+`P × (1 − π − t) ≥ c
+
+P_mín ≈ c ÷ (1 − π − t)
+      = ${mx2.format(c)} ÷ (1 − ${nf.format(pi*100)}% − ${nf.format(t*100)}%)
+      ≈ ${$$(approx)}
+
+Si la especie pesa más que el piso:
+P_mín ≥ (c + especie ÷ N) ÷ (1 − t) ≈ ${$$(approx2)}
+
+Exacto, resuelto por la calculadora: ${pmin?$$(pmin):"no hay precio que funcione"}`;
+  const cuota=(r.op+r.Mp)/q.N, bolsa=(r.Q+r.esp)/q.N;
+  $("fS").textContent=
+`Lazo de ${$$(q.P)}
+  Cuota de operación     ${mx2.format(cuota).padStart(12)}   (${pct(cuota/q.P)})
+     ganado              ${mx2.format(r.ganado/q.N).padStart(12)}
+     personal base       ${mx2.format((r.corr+r.juez+r.voc)/q.N).padStart(12)}
+     agua, arena, otros  ${mx2.format(r.fijos/q.N).padStart(12)}
+     comisión            ${mx2.format(r.Mp/q.N).padStart(12)}
+  A la bolsa de premios  ${mx2.format(bolsa).padStart(12)}   (${pct(bolsa/q.P)})${r.falt>0?`
+  Faltante por lazo      ${mx2.format(r.falt/q.N).padStart(12)}   lo pone la organización`:""}`;
+}
+
+/* ---------- reporte ---------- */
+["rName","rDate","rPlace","rMode"].forEach(id=>{const el=$(id); el.value=p[id]||DEF[id]; el.addEventListener("input",()=>{p[id]=el.value;save();renderReport(p,last.r,last.pmin,last.nmin);});});
+function fechaTxt(d){ if(!d) return "Sin fecha"; const [y,m,dd]=d.split("-"); const M=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; return `${+dd} de ${M[+m-1]} de ${y}`; }
+function payLines(q,r){
+  const L=[];
+  if(q.bundle) L.push(["Proveedor de ganado (incluye corraleros)",r.ganado+r.corr+r.cc,`${r.S} salidas`]);
+  else {
+    L.push(["Proveedor de ganado",r.ganado,`${r.S} salidas × ${mx2.format(r.g)}`]);
+    for(let i=1;i<=q.nc;i++) L.push([`Corralero ${i}`,(r.corr+r.cc)/q.nc,`${nf.format(r.H)} h × ${$$(q.wc)} + comisión ${$$(r.cc/q.nc)}`]);
+  }
+  L.push(["Juez de bandera",r.juez+r.cj,`${nf.format(r.H)} h × ${$$(q.wj)} + comisión ${$$(r.cj)}`]);
+  L.push(["Vocero y operación",r.voc+r.cv,`${nf.format(r.H)} h × ${$$(q.wv)} + operación centralropingmexico.com ${$$(q.eq)} + comisión ${$$(r.cv)}`]);
+  L.push(["Agua",q.agua,""]); L.push(["Arena",q.arena,""]);
+  if(q.otros) L.push(["Otros gastos",q.otros,""]);
+  L.push(["Premios en especie",r.esp,"hebillas, sogas, monturas, etc."]);
+  L.push(["Premios en efectivo (bolsa)",r.Q,"a repartir por lugares"]);
+  L.push(["Organización e inversión",r.org,r.falt>0?`incluye faltante de ${$$(r.falt)}`:"comisión"]);
+  return L;
+}
+function renderReport(q,r,pmin,nmin){
+  if(!r) return;
+  const L=payLines(q,r);
+  $("report").innerHTML=`
+  <div class="rh"><div><h2>${esc(q.rName)||"Lazada sin nombre"}</h2><div class="meta">${fechaTxt(q.rDate)} · ${esc(q.rPlace)||"Sede por definir"} · ${esc(q.rMode)}</div></div>
+  <div><span class="pill ${r.status}">${STAT[r.status]}</span></div></div>
+  <h3>Inscripción</h3>
+  <div class="scroll"><table><tbody>
+    <tr><td>Lazos en primera ronda</td><td class="num">${q.N}</td></tr>
+    <tr><td>Ingreso por lazo de pareja</td><td class="num">${$$(q.P)}</td></tr>
+    <tr><td><b>Recaudación total</b></td><td class="num"><b>${$$(r.R)}</b></td></tr>
+    <tr><td>Parejas por ronda</td><td class="num">${r.rc.join(" · ")}</td></tr>
+    <tr><td>Salidas de ganado (todas las rondas)</td><td class="num">${r.S}</td></tr>
+    <tr><td>Horas pagadas</td><td class="num">${nf.format(r.H)} h</td></tr>
+  </tbody></table></div>
+  <h3>Pagos</h3>
+  <div class="scroll"><table><thead><tr><th>Concepto</th><th>Detalle</th><th>Monto</th><th>Firma</th></tr></thead><tbody>
+    ${L.map(([n,v,d])=>`<tr><td>${n}</td><td style="white-space:normal;text-align:left;color:var(--muted);font-size:.85rem">${d}</td><td class="num ${v<0?"neg":""}">${$$(v)}</td><td class="sign"></td></tr>`).join("")}
+  </tbody><tfoot><tr><td>Total</td><td></td><td class="num">${$$(L.reduce((a,x)=>a+x[1],0)+(r.falt>0?r.falt:0)-(r.falt>0?r.falt:0))}</td><td></td></tr></tfoot></table></div>
+  <h3>Resumen</h3>
+  <div class="scroll"><table><tbody>
+    <tr><td>Regresa a lazadores (efectivo + especie)</td><td class="num">${$$(r.Q+r.esp)} · ${pct(r.payback)}</td></tr>
+    <tr><td>Comisión por valor aplicada</td><td class="num">${$$(r.Mp)}${r.Mp<r.M-0.5?` de ${$$(r.M)}`:""}</td></tr>
+    <tr><td>Precio mínimo sano para ${q.N} lazos</td><td class="num">${pmin?$$(pmin):"—"}</td></tr>
+  </tbody></table></div>
+  <p class="note">Central Roping México. Tarifas: corralero ${$$(q.wc)}/h, juez ${$$(q.wj)}/h, vocero ${$$(q.wv)}/h, ganado ${mx2.format(r.g)}/salida, comisión ${q.t1}% / ${q.t2}% / ${q.t3}%, piso ${q.piso}%.</p>`;
+}
+function esc(s){return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function reportText(){
+  const q=p,r=last.r,L=payLines(q,r);
+  return [`LIQUIDACIÓN · ${q.rName||"Lazada"}`,`${fechaTxt(q.rDate)} · ${q.rPlace||"Sede por definir"} · ${q.rMode}`,"",
+  `Lazos: ${q.N} × ${$$(q.P)} = ${$$(r.R)}`,`Parejas por ronda: ${r.rc.join(" · ")}`,`Salidas: ${r.S} · Horas: ${nf.format(r.H)}`,"","PAGOS",
+  ...L.map(([n,v,d])=>`• ${n}: ${$$(v)}${d?` (${d})`:""}`),"",
+  `Regresa a lazadores: ${$$(r.Q+r.esp)} (${pct(r.payback)})`,`Estado: ${STAT[r.status]}`].join("\n");
+}
+function reportTSV(){
+  const q=p,r=last.r,L=payLines(q,r);
+  return [["Concepto","Detalle","Monto"].join("\t"),["Recaudación",`${q.N} × ${q.P}`,Math.round(r.R)].join("\t"),...L.map(([n,v,d])=>[n,d,Math.round(v)].join("\t"))].join("\n");
+}
+async function copy(txt){
+  const msg=$("cpMsg"), fb=$("cpFallback");
+  try{await navigator.clipboard.writeText(txt); msg.textContent="Copiado."; fb.hidden=true;}
+  catch(e){fb.hidden=false; fb.value=txt; fb.focus(); fb.select(); msg.textContent="Tu navegador no dejó copiar. El texto está seleccionado abajo: usa Ctrl+C.";}
+  setTimeout(()=>msg.textContent="",4000);
+}
+$("cpText").addEventListener("click",()=>copy(reportText()));
+$("cpTab").addEventListener("click",()=>copy(reportTSV()));
+
+/* ---------- glosario ---------- */
+function renderGloss(q,r,pmin,nmin){
+  const G=[
+    ["Lazo","N","Una pareja corriendo en la primera ronda. Es la unidad con la que se cobra.",`Ahora: ${q.N} lazos.`],
+    ["Ingreso por lazo","P","Lo que entra por cada pareja. En pick only, lo que pagan los dos juntos. En paquetes, la recaudación entre los lazos que salieron del sorteo.",`Ahora: ${$$(q.P)}.`],
+    ["Recaudación","R = N × P","Todo el dinero que entró por inscripciones.",`Ahora: ${$$(r.R)}.`],
+    ["Salidas","S","Cada vez que sale un novillo, en todas las rondas. Es lo que se le paga al ganado.",`Ahora: ${r.S} salidas, ${nf.format(r.f)} por lazo.`],
+    ["Horas pagadas","H","Salidas entre 80 por hora, más preparación y cierre. Es la base del pago al personal.",`Ahora: ${nf.format(r.H)} h.`],
+    ["Tarifa del ganado","g","Lo que se paga por salida. Sube de la tarifa baja a la alta según el precio del lazo.",`Ahora: ${mx2.format(r.g)} por salida.`],
+    ["P bajo y P alto de referencia","P_bajo, P_alto","No son precios que cobres. Son los puntos donde la tarifa del ganado deja de bajar o de subir. Con un lazo de ${$$(q.pbajo)} o menos se paga ${$$(q.gmin)}; con ${$$(q.palto)} o más se paga ${$$(q.gmax)}; en medio, en proporción.",`Ejemplo: un lazo de ${$$((q.pbajo+q.palto)/2)} paga ${mx2.format((q.gmin+q.gmax)/2)} por salida.`],
+    ["Base por trabajo","","Lo que cobra un área por su tiempo o su uso, sin importar el precio del lazo. Siempre se paga completo.",""],
+    ["Comisión por valor","M","Un porcentaje de la recaudación que se reparte entre las áreas. Es la parte que crece cuando el lazo vale más.",`Ahora: ${$$(r.M)} calculada, ${$$(r.Mp)} aplicada.`],
+    ["Tramos","t₁, t₂, t₃","La comisión se cobra por partes, como el ISR pero al revés: un porcentaje para los primeros pesos y otros más bajos para los siguientes. Así el porcentaje total baja en eventos grandes.",`Con ${$$(r.R)}: ${pct(r.R?r.M/r.R:0)} en promedio.`],
+    ["Piso de premios","π","El porcentaje mínimo de la recaudación que debe regresar a los lazadores, sumando efectivo y especie. Si no se alcanza, se recorta la comisión.",`Ahora: ${q.piso}%. Regresa ${pct(r.payback)}.`],
+    ["Costo de operación por lazo","c","Lo que cuesta poner a correr una pareja: ganado, personal, agua, arena, operación de centralropingmexico.com. Baja con más lazos porque lo fijo se reparte.",""],
+    ["Precio mínimo sano","P_mín","El precio de lazo más bajo con el que todas las áreas cobran completo y se cumple el piso de premios. Debajo de este precio, alguien cobra menos.",`Para ${q.N} lazos: ${pmin?$$(pmin):"—"}.`],
+    ["Lazos mínimos","N_mín","Con tu precio actual, cuántos lazos necesitas para que el evento sea sano. Si dice «No sale», el precio no cubre ni el ganado y el tiempo de cada pareja.",`A ${$$(q.P)}: ${nmin||"No sale"}.`],
+    ["Cuota de operación y bolsa","","Cómo dividir el precio del lazo frente al lazador: una parte paga la operación y la otra va a premios.",""],
+    ["Estados","","Sano: todos cobran completo. Comisión recortada: se cumplió el piso quitando comisión. Premios bajo el piso: no hubo comisión y aun así no se llegó. Pérdida: no alcanza ni para los gastos.",`Ahora: ${STAT[r.status]}.`]
+  ];
+  $("gloss").innerHTML=G.map(([t,s,d,e])=>`<div class="term"><dt>${t}${s?`<code>${s}</code>`:""}</dt><dd>${d}</dd>${e?`<dd class="ex">${e}</dd>`:""}</div>`).join("");
+}
+
+$("matrix").addEventListener("click",e=>{const td=e.target.closest("td[data-n]"); if(td) setNP(+td.dataset.n,+td.dataset.p);});
+$("matrix").addEventListener("keydown",e=>{if(e.key==="Enter"){const td=e.target.closest("td[data-n]"); if(td) setNP(+td.dataset.n,+td.dataset.p);}});
+$("hGo").addEventListener("click",()=>{const R=parseFloat($("hR").value),N=parseFloat($("hN").value); if(R>0&&N>0) setNP(Math.round(N),Math.round(R/N));});
+$("reset").addEventListener("click",()=>{const keep={rName:p.rName,rDate:p.rDate,rPlace:p.rPlace,rMode:p.rMode};p={...DEF,...keep,rv:DEF.rv.slice()};buildParams();buildRounds();setNP(DEF.N,DEF.P);});
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",renderCharts);}catch(e){}
+new MutationObserver(renderCharts).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+function buildRounds(){
+  $("nr").value=p.nr;
+  $("rmPct").setAttribute("aria-pressed",p.rmode!=="num");
+  $("rmNum").setAttribute("aria-pressed",p.rmode==="num");
+  const host=$("roundRows"); let h=`<div class="rrow"><span>${ORD[0]} ronda (todos)</span><span class="num" style="text-align:right">${p.N}</span><span class="eq">100%</span></div>`;
+  for(let k=1;k<p.nr;k++){
+    const last=k===p.nr-1;
+    h+=`<div class="rrow"><label for="rv${k}">${ORD[k]} ronda${last&&p.nr>1?" (final)":""}</label><input type="number" id="rv${k}" min="0" step="${p.rmode==="num"?1:1}" value="${p.rv[k-1]}"><span class="eq" id="rq${k}"></span></div>`;
+  }
+  host.innerHTML=h;
+  for(let k=1;k<p.nr;k++){ $("rv"+k).addEventListener("input",e=>{const v=parseFloat(e.target.value); p.rv[k-1]=isNaN(v)?0:v; update();}); }
+}
+function refreshRounds(r){
+  const rc=r.rc;
+  const first=document.querySelector("#roundRows .rrow .num"); if(first) first.textContent=p.N;
+  for(let k=1;k<p.nr;k++){const el=$("rq"+k); if(el) el.textContent=p.rmode==="num"?pct(p.N?rc[k]/p.N:0):rc[k]+" par.";}
+  $("roundSum").textContent=`Salidas: ${rc.join(" + ")} = ${r.S} (${nf.format(r.f)} por lazo).`+(p.rmode==="num"?" En las gráficas que mueven N, el número de parejas que pasa se queda fijo.":"");
+}
+$("nr").addEventListener("change",()=>{p.nr=+$("nr").value;buildRounds();update();});
+function setMode(m){
+  if(m===p.rmode) return;
+  const rc=roundsCount(p,p.N);
+  for(let k=1;k<6;k++){ if(k<p.nr){ p.rv[k-1]= m==="num"? rc[k] : Math.round((p.N?rc[k]/p.N*100:0)*10)/10; } }
+  p.rmode=m; buildRounds(); update();
+}
+$("rmPct").addEventListener("click",()=>setMode("pct"));
+$("rmNum").addEventListener("click",()=>setMode("num"));
+buildParams(); buildRounds(); bindBig("N"); bindBig("P"); update();
+</script>
+
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{});});}
+</script>
+</body>
+</html>
